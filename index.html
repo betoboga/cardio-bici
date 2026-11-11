@@ -76,7 +76,7 @@ const MODES = {
   quick: { seconds: 60, cues: [
     [0,'Prueba de voz. Un minuto.'],[10,'Diez segundos.'],[20,'Veinte segundos.'],
     [30,'Mitad de la prueba.'],[45,'Quedan quince segundos.'],[55,'Cinco, cuatro, tres, dos, uno.'],
-    [60,'Prueba completada. La voz y el temporizador funcionan.']]},
+    [60,'Prueba completada.']]},
   full: { seconds: 1500, cues: [
     [0,'Comienza la sesión. Veinticinco minutos de bici.'],[300,'Llevas cinco minutos.'],
     [600,'Llevas diez minutos.'],[750,'Mitad de la sesión.'],[900,'Quedan diez minutos.'],
@@ -149,7 +149,7 @@ function tick(){
   for(const [at, text] of MODES[mode].cues){
     if(total >= at && !fired.has(at)){ fired.add(at); speak(text); }
   }
-  if(total >= limit){ stop(false); done = true; $('state').textContent = 'Completada'; releaseWake(); }
+  if(total >= limit){ stop(false); done = true; $('state').textContent = 'Completada'; $('start').textContent = 'Empezar'; releaseWake(); }
 }
 function start(){
   if(done){ reset(); }
