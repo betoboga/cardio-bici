@@ -1,10 +1,10 @@
-const CACHE = 'cardio-bici-v1';
+const CACHE = 'cardio-bici-v2';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
-  './icon-192.png',
-  './icon-512.png'
+  './1-icon-192.png',
+  './2-icon-512.png'
 ];
 
 self.addEventListener('install', (event) => {
