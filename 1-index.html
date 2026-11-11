@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#141310">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Cardio Bici</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root { --bg:#141310; --panel:#1d1b16; --line:#3a372f; --txt:#f4f1e8; --mut:#b9b3a4; --yel:#f5c518; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; background:var(--bg); color:var(--txt); font-family:-apple-system,'Segoe UI',Roboto,sans-serif; }
+  body { min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:20px 16px 32px; }
+  h1 { font-size:20px; font-weight:700; margin:8px 0 2px; letter-spacing:-0.01em; }
+  .sub { color:var(--mut); font-size:13px; margin-bottom:18px; text-align:center; }
+  .modes { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:16px; }
+  .mode-btn { background:transparent; color:var(--mut); border:1px solid var(--line); border-radius:999px; padding:10px 16px; min-height:44px; font:inherit; font-size:13px; }
+  .mode-btn.on { background:var(--yel); color:#141310; border-color:var(--yel); font-weight:600; }
+  .time { font-size:96px; line-height:1; font-weight:700; letter-spacing:-0.02em; color:var(--yel); font-variant-numeric:tabular-nums; }
+  @media (max-width:400px){ .time{ font-size:76px; } }
+  .bar { width:100%; max-width:340px; height:6px; background:#2c2a24; border-radius:3px; margin:18px 0 8px; overflow:hidden; }
+  .fill { height:100%; background:var(--yel); border-radius:3px; width:0; transition:width .25s linear; }
+  .state { color:var(--mut); font-size:13px; margin-bottom:14px; }
+  .controls { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin:10px 0; }
+  .ctl { background:#2c2a24; color:var(--txt); border:1px solid var(--line); border-radius:12px; padding:12px 24px; min-height:52px; min-width:130px; font:inherit; font-size:16px; }
+  .ctl.on { background:var(--yel); color:#141310; border-color:var(--yel); font-weight:600; }
+  .wake, .net { color:var(--mut); font-size:12px; margin-top:6px; text-align:center; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; width:100%; max-width:420px; margin-top:22px; }
+  .card h2 { font-size:14px; margin:0 0 8px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+  .chip { background:transparent; color:var(--mut); border:1px solid var(--line); border-radius:999px; padding:8px 12px; min-height:40px; font:inherit; font-size:12px; }
+  .chip.on { border-color:var(--yel); color:var(--yel); font-weight:600; }
+  .note { color:var(--mut); font-size:12px; line-height:1.5; margin-top:8px; }
+  .log { width:100%; max-width:420px; margin-top:18px; }
+  .log div { color:var(--mut); font-size:12px; border-bottom:1px solid #24221c; padding:6px 2px; }
+  .ok { color:#8fd18a; } .bad { color:#ef7d7d; }
+</style>
+</head>
+<body>
+<h1>Cardio Bici</h1>
+<div class="sub">Sesiones guiadas por voz. Avisos de tiempo; el esfuerzo lo marca tu plan.</div>
+
+<div class="modes">
+  <button class="mode-btn on" data-mode="quick">Prueba · 1 min</button>
+  <button class="mode-btn" data-mode="full">Sesión · 25 min</button>
+</div>
+
+<div class="time" id="time">01:00</div>
+<div class="bar"><div class="fill" id="fill"></div></div>
+<div class="state" id="state">Lista</div>
+<div class="controls">
+  <button class="ctl on" id="start">Empezar</button>
+  <button class="ctl" id="reset">Reiniciar</button>
+</div>
+<div class="wake" id="wake">Pantalla: sin activar</div>
+<div class="net" id="net"></div>
+
+<div class="card">
+  <h2>Voz</h2>
+  <div class="chips" id="voices"></div>
+  <div class="controls" style="justify-content:flex-start">
+    <button class="ctl on" id="test" style="min-width:0">Probar voz</button>
+  </div>
+  <div class="note">Sin internet: si la voz suena con el modo avión activado, tu móvil la tiene descargada. Si no, descárgala en Ajustes, «Conversión de texto a voz». Las voces «en el móvil» funcionan sin conexión; las «online» necesitan internet.</div>
+</div>
+
+<div class="log" id="log"></div>
+
+<script>
+const MODES = {
+  quick: { seconds: 60, cues: [
+    [0,'Prueba de voz. Un minuto.'],[10,'Diez segundos.'],[20,'Veinte segundos.'],
+    [30,'Mitad de la prueba.'],[45,'Quedan quince segundos.'],[55,'Cinco, cuatro, tres, dos, uno.'],
+    [60,'Prueba completada. La voz y el temporizador funcionan.']]},
+  full: { seconds: 1500, cues: [
+    [0,'Comienza la sesión. Veinticinco minutos de bici.'],[300,'Llevas cinco minutos.'],
+    [600,'Llevas diez minutos.'],[750,'Mitad de la sesión.'],[900,'Quedan diez minutos.'],
+    [1200,'Quedan cinco minutos.'],[1380,'Quedan dos minutos. Mantén el ritmo.'],
+    [1440,'Último minuto.'],[1500,'Sesión completada. Buen trabajo.']]}
+};
+
+let mode = 'quick', acc = 0, startTs = 0, running = false, done = false, timer = null;
+let fired = new Set(), wakeLock = null, voiceName = '';
+const $ = id => document.getElementById(id);
+const fmt = s => String(Math.floor(s/60)).padStart(2,'0') + ':' + String(Math.floor(s%60)).padStart(2,'0');
+
+function logLine(t){ const d=document.createElement('div'); d.textContent=t; $('log').prepend(d); }
+
+function beep(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = 880; g.gain.value = 0.15;
+    o.connect(g); g.connect(ctx.destination); o.start();
+    setTimeout(()=>{ o.stop(); ctx.close(); }, 350);
+  }catch(e){}
+}
+
+function speak(text){
+  if(!('speechSynthesis' in window)){ beep(); logLine('✕ Sin voz en este navegador: «'+text+'»'); return; }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'es-ES'; u.rate = 1.02;
+  const v = speechSynthesis.getVoices().find(x => x.name === voiceName);
+  if(v) u.voice = v;
+  u.onerror = () => { beep(); logLine('✕ Falló la voz, aviso solo visual: «'+text+'»'); };
+  speechSynthesis.speak(u);
+  logLine('🔊 ' + fmt(acc + (running ? (Date.now()-startTs)/1000 : 0)) + ' — ' + text);
+}
+
+function loadVoices(){
+  if(!('speechSynthesis' in window)) return;
+  const all = speechSynthesis.getVoices();
+  const es = all.filter(v => v.lang.toLowerCase().startsWith('es'));
+  const list = es.length ? es : all.slice(0,8);
+  const box = $('voices'); box.innerHTML = '';
+  list.forEach(v => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (v.name === voiceName ? ' on' : '');
+    b.textContent = v.name.replace('Microsoft ','').replace('Google ','') + ' · ' + (v.localService ? 'en el móvil' : 'online');
+    b.onclick = () => { voiceName = v.name; loadVoices(); };
+    box.appendChild(b);
+  });
+  if(!voiceName && list.length){ const pref = es.find(v => v.localService) || es[0]; if(pref) voiceName = pref.name; }
+}
+if('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+
+async function requestWake(){
+  if(!('wakeLock' in navigator)){ $('wake').textContent = 'Pantalla: no se puede mantener encendida desde aquí'; return; }
+  try{
+    wakeLock = await navigator.wakeLock.request('screen');
+    $('wake').textContent = 'Pantalla: se mantiene encendida';
+    wakeLock.addEventListener('release', () => { $('wake').textContent = 'Pantalla: liberada'; });
+  }catch(e){ $('wake').textContent = 'Pantalla: no disponible (' + (e && e.message ? e.message : 'rechazada') + ')'; }
+}
+function releaseWake(){ if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; } $('wake').textContent = 'Pantalla: sin activar'; }
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && running) requestWake(); });
+
+function tick(){
+  const total = acc + (Date.now()-startTs)/1000;
+  const limit = MODES[mode].seconds;
+  const rem = Math.max(0, limit - total);
+  $('time').textContent = fmt(rem);
+  $('fill').style.width = Math.min(100, total/limit*100) + '%';
+  for(const [at, text] of MODES[mode].cues){
+    if(total >= at && !fired.has(at)){ fired.add(at); speak(text); }
+  }
+  if(total >= limit){ stop(false); done = true; $('state').textContent = 'Completada'; releaseWake(); }
+}
+function start(){
+  if(done){ reset(); }
+  startTs = Date.now(); running = true;
+  $('state').textContent = 'En marcha'; $('start').textContent = 'Pausar';
+  timer = setInterval(tick, 250); requestWake();
+}
+function stop(manual = true){
+  if(running) acc += (Date.now()-startTs)/1000;
+  running = false; clearInterval(timer);
+  $('state').textContent = manual ? 'En pausa' : $('state').textContent;
+  $('start').textContent = 'Reanudar';
+  if(manual) releaseWake();
+}
+function reset(){
+  running = false; clearInterval(timer); acc = 0; fired = new Set(); done = false;
+  if('speechSynthesis' in window) speechSynthesis.cancel();
+  $('time').textContent = fmt(MODES[mode].seconds); $('fill').style.width = '0';
+  $('state').textContent = 'Lista'; $('start').textContent = 'Empezar'; $('log').innerHTML = '';
+  releaseWake();
+}
+$('start').onclick = () => running ? stop(true) : start();
+$('reset').onclick = reset;
+$('test').onclick = () => speak('Prueba de voz en español. Si me oyes, la voz funciona.');
+document.querySelectorAll('.mode-btn').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.mode-btn').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); mode = b.dataset.mode; reset();
+});
+
+function netStatus(){
+  $('net').textContent = navigator.onLine ? '' : 'Sin conexión: la app sigue funcionando';
+  $('net').className = 'net ' + (navigator.onLine ? '' : 'ok');
+}
+window.addEventListener('online', netStatus); window.addEventListener('offline', netStatus); netStatus();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
